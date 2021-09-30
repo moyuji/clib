@@ -17,8 +17,16 @@ struct item** heads;
 double* score;
 int* ranked_list;
 
-int compare_item(const int *a,const int *b) {
-    return score[*b] - score[*a];
+int compare_item(const void *a,const void *b) {
+    double l = score[*(int *)a];
+    double r = score[*(int *)b];
+    if (r - l > 0) {
+        return 1;
+    }
+    if (l - r > 0) {
+        return -1;
+    }
+    return 0;
 }
 
 PyObject* hello(PyObject *self, PyObject *args) {
