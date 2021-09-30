@@ -16,6 +16,7 @@ struct item* matrix;
 struct item** heads;
 double* score;
 int* ranked_list;
+int* ranked_list_b;
 
 int compare_item(const void *a,const void *b) {
     double l = score[*(int *)a];
@@ -30,6 +31,7 @@ int compare_item(const void *a,const void *b) {
 }
 
 PyObject* hello(PyObject *self, PyObject *args) {
+    printf("Hello!\n");
     Py_RETURN_NONE;
 }
 
@@ -48,9 +50,11 @@ PyObject* load(PyObject *self, PyObject *args) {
     num_dims = array->dimensions[1];
     score = malloc(sizeof(double) * num_rows);
     ranked_list = malloc(sizeof(int) * num_rows);
+    ranked_list_b = malloc(sizeof(int) * num_rows);
     int ret = 0;
     for (int r=0; r<num_rows; r++) {
         ranked_list[r] = r;
+        score[r] = 0;
         for(int c=0; c<num_dims; c++) {
             if (fabs(LOOKUP(array, r, c)) > EPS) {
                 ret += 1;
@@ -72,6 +76,7 @@ PyObject* load(PyObject *self, PyObject *args) {
         }
     }
     heads[num_dims] = loc;
+    printf("Loaded!\n");
     return PyLong_FromLong(ret);
 }
 
@@ -92,23 +97,55 @@ PyObject* eval(PyObject *self, PyObject *args) {
         PyErr_SetString(PyExc_ValueError, "mismatched dimension");
         return NULL;
     }
-    memset(score, 0, sizeof(double) * num_rows);
-    struct item* loc;
-    for(int c=0; c<num_dims; c++) {
-        double weight = LOOKUP(array, 0, c);
-        if (fabs(weight) < EPS) {
-            continue;
+    int perf = 0;
+    int n_res = array->dimensions[0];
+    PyObject* python_ret = PyList_New(n_res);
+    for(int r=0; r<n_res; r++) {
+        int counter_left_now = 0;
+        int counter_right_now = 0;
+        int counter_right_end = 0;
+        struct item* loc;
+        for(int c=0; c<num_dims; c++) {
+            double weight = LOOKUP(array, r, c);
+            if (fabs(weight) < EPS) {
+                continue;
+            }
+            counter_left_now = 0;
+            counter_right_now = 0;
+    //        printf("c=%d\n", c);
+            for(loc=heads[c]; loc < heads[c + 1]; loc ++) {
+    //            printf("counter_right_now=%d counter_left_now=%d weight=%f\n", counter_right_now, counter_left_now, weight);
+                perf+=1;
+                while(counter_right_now < counter_right_end &&
+                    ranked_list_b[counter_right_now] < loc->row_id) {
+                    ranked_list[counter_left_now++] = ranked_list_b[counter_right_now++];
+                    perf+=1;
+                }
+                if (counter_right_now >= counter_right_end ||
+                    ranked_list_b[counter_right_now] > loc->row_id) {
+                    score[loc->row_id] = 0.0;
+                    ranked_list[counter_left_now++] = loc->row_id;
+                } else {
+                    ranked_list[counter_left_now++] = ranked_list_b[counter_right_now++];
+                }
+                score[loc->row_id] += weight * loc->weight;
+            }
+            int * swp = ranked_list_b;
+            ranked_list_b = ranked_list;
+            ranked_list = swp;
+            counter_right_end = counter_left_now;
+//            for (int i = 0; i < counter_right_end; i++) {
+//                printf("%d:%f ", ranked_list_b[i], score[ranked_list_b[i]]);
+//            }
+//            printf("\n");
         }
-        for(loc=heads[c]; loc < heads[c + 1]; loc ++) {
-            score[loc->row_id] += weight * loc->weight;
+        qsort(ranked_list_b, counter_left_now, sizeof(int), compare_item);
+        PyObject* python_val = PyList_New(k);
+        for (int i = 0; i < k; ++i) {
+            PyList_SetItem(python_val, i, Py_BuildValue("i", ranked_list_b[i]));
         }
+        PyList_SetItem(python_ret, r, Py_BuildValue("O", python_val));
     }
-    qsort(ranked_list, num_rows, sizeof(int), compare_item);
-    PyObject* python_val = PyList_New(k);
-    PyObject* python_score = PyList_New(k);
-    for (int i = 0; i < k; ++i) {
-        PyList_SetItem(python_val, i, Py_BuildValue("i", ranked_list[i]));
-        PyList_SetItem(python_score, i, Py_BuildValue("d", score[ranked_list[i]]));
-    }
-    return PyTuple_Pack(2, python_val, python_score);
+    printf("perf=%d\n", perf);
+    return python_ret;
 }
