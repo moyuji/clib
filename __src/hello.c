@@ -96,9 +96,9 @@ PyObject* eval(PyObject *self, PyObject *args) {
     struct item* loc;
     for(int c=0; c<num_dims; c++) {
         double weight = LOOKUP(array, 0, c);
-//        if (fabs(weight) < EPS) {
-//            continue;
-//        }
+        if (fabs(weight) < EPS) {
+            continue;
+        }
         for(loc=heads[c]; loc < heads[c + 1]; loc ++) {
             score[loc->row_id] += weight * loc->weight;
         }
