@@ -97,8 +97,10 @@ PyObject* eval(PyObject *self, PyObject *args) {
     }
     qsort(ranked_list, num_rows, sizeof(int), compare_item);
     PyObject* python_val = PyList_New(k);
+    PyObject* python_score = PyList_New(k);
     for (int i = 0; i < k; ++i) {
         PyList_SetItem(python_val, i, Py_BuildValue("i", ranked_list[i]));
+        PyList_SetItem(python_score, i, Py_BuildValue("d", score[ranked_list[i]]));
     }
-    return python_val;
+    return PyTuple_Pack(2, python_val, python_score);
 }
