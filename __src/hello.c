@@ -88,7 +88,7 @@ void arrange(int left, int right, int k) {
     int b = right - 1;
     int c;
     for (c = 1; c < b;) {
-        if (score[now] > score[ranked_list_b[c]]) {
+        if (score[now] < score[ranked_list_b[c]]) {
             ranked_list_b[a++] = ranked_list_b[c];
             c++;
         } else {
