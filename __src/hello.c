@@ -18,9 +18,9 @@ double* score;
 int* ranked_list;
 int* ranked_list_b;
 
-int compare_item(const void *a,const void *b) {
-    double l = score[*(int *)a];
-    double r = score[*(int *)b];
+int compare_item(const int *a,const int *b) {
+    double l = score[*a];
+    double r = score[*b];
     if (r - l > 0) {
         return 1;
     }
@@ -51,9 +51,11 @@ PyObject* load(PyObject *self, PyObject *args) {
     score = malloc(sizeof(double) * num_rows);
     ranked_list = malloc(sizeof(int) * num_rows);
     ranked_list_b = malloc(sizeof(int) * num_rows);
+
     int ret = 0;
     for (int r=0; r<num_rows; r++) {
         ranked_list[r] = r;
+        ranked_list_b[r] = r;
         score[r] = 0;
         for(int c=0; c<num_dims; c++) {
             if (fabs(LOOKUP(array, r, c)) > EPS) {
@@ -80,6 +82,31 @@ PyObject* load(PyObject *self, PyObject *args) {
     return PyLong_FromLong(ret);
 }
 
+void arrange(int left, int right, int k) {
+    int now = ranked_list_b[left];
+    int a = left;
+    int b = right - 1;
+    int c;
+    for (c = 1; c < b;) {
+        if (score[now] > score[ranked_list_b[c]]) {
+            ranked_list_b[a++] = ranked_list_b[c];
+            c++;
+        } else {
+            int d = ranked_list_b[b];
+            ranked_list_b[b--] = ranked_list_b[c];
+            ranked_list_b[c] = d;
+        }
+    }
+    ranked_list_b[a++] = now;
+    if (a==k) {
+        return;
+    }
+    if (a < k) {
+        arrange(a, right, k);
+    } else {
+        arrange(left, a, k);
+    }
+}
 
 PyObject* eval(PyObject *self, PyObject *args) {
     PyObject *input;
@@ -97,7 +124,6 @@ PyObject* eval(PyObject *self, PyObject *args) {
         PyErr_SetString(PyExc_ValueError, "mismatched dimension");
         return NULL;
     }
-    int perf = 0;
     int n_res = array->dimensions[0];
     PyObject* python_ret = PyList_New(n_res);
     for(int r=0; r<n_res; r++) {
@@ -112,14 +138,10 @@ PyObject* eval(PyObject *self, PyObject *args) {
             }
             counter_left_now = 0;
             counter_right_now = 0;
-    //        printf("c=%d\n", c);
             for(loc=heads[c]; loc < heads[c + 1]; loc ++) {
-    //            printf("counter_right_now=%d counter_left_now=%d weight=%f\n", counter_right_now, counter_left_now, weight);
-                perf+=1;
                 while(counter_right_now < counter_right_end &&
                     ranked_list_b[counter_right_now] < loc->row_id) {
                     ranked_list[counter_left_now++] = ranked_list_b[counter_right_now++];
-                    perf+=1;
                 }
                 if (counter_right_now >= counter_right_end ||
                     ranked_list_b[counter_right_now] > loc->row_id) {
@@ -134,18 +156,17 @@ PyObject* eval(PyObject *self, PyObject *args) {
             ranked_list_b = ranked_list;
             ranked_list = swp;
             counter_right_end = counter_left_now;
-//            for (int i = 0; i < counter_right_end; i++) {
-//                printf("%d:%f ", ranked_list_b[i], score[ranked_list_b[i]]);
-//            }
-//            printf("\n");
         }
-        qsort(ranked_list_b, counter_left_now, sizeof(int), compare_item);
+        if (counter_left_now > k) {
+            arrange(0, counter_right_end, k);
+        }
+//        printf("$%d$", ranked_list_b[2]);
+        qsort(ranked_list_b, k, sizeof(int), compare_item);
         PyObject* python_val = PyList_New(k);
         for (int i = 0; i < k; ++i) {
             PyList_SetItem(python_val, i, Py_BuildValue("i", ranked_list_b[i]));
         }
         PyList_SetItem(python_ret, r, Py_BuildValue("O", python_val));
     }
-    printf("perf=%d\n", perf);
     return python_ret;
 }
