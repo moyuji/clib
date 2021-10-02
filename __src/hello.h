@@ -17,7 +17,6 @@
 // In general, make sure that you include pybind11.h BEFORE all other header files.
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
-#include <numpy/arrayobject.h>
 #include <pybind11/stl.h>
 
 namespace py = pybind11;
