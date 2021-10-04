@@ -20,8 +20,31 @@ int* ranked_list_b;
 int * res;
 double* umap;
 int topk;
-bool compare_item(const int a,const int b) {
+inline bool compare_item(const int a,const int b) {
     return umap[a] > umap[b];
+}
+
+inline void heap_replace_top(int * begin, int val) {
+    begin--;
+    int i = 1, i1, i2;
+    while (1) {
+        i1 = i << 1;
+        i2 = i1 + 1;
+        if (i1 > topk)
+            break;
+        if (i2 == topk + 1 || umap[begin[i1]] < umap[begin[i2]]) {
+            if (umap[val] < umap[begin[i1]])
+                break;
+            begin[i] = begin[i1];
+            i = i1;
+        } else {
+            if (umap[val] < umap[begin[i2]])
+                break;
+            begin[i] = begin[i2];
+            i = i2;
+        }
+    }
+    begin[i] = val;
 }
 
 void hello() {
@@ -93,9 +116,10 @@ void eval(py::array_t<double> array, int k) {
         for (int i = k; i<num_rows; i++) {
             if(tp < umap[i]) {
                 // higher score than heap top
-                pop_heap(hp, hp + k, compare_item);
-                hp[k - 1] = i;
-                push_heap(hp, hp + k, compare_item);
+//                pop_heap(hp, hp + k, compare_item);
+//                hp[k - 1] = i;
+//                push_heap(hp, hp + k, compare_item);
+                heap_replace_top(hp, i);
                 tp = umap[hp[0]];
             }
         }
