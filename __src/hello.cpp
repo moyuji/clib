@@ -30,13 +30,13 @@ inline void heap_replace_top(int * begin, int val) {
         i2 = i1 + 1;
         if (i1 > topk)
             break;
-        if (i2 == topk + 1 || compare_item(begin[i1], begin[i2])) {
-            if (compare_item(val, begin[i1]))
+        if (i2 == topk + 1 || compare_item(begin[i2], begin[i1])) {
+            if (compare_item(begin[i1], val))
                 break;
             begin[i] = begin[i1];
             i = i1;
         } else {
-            if (compare_item(val, begin[i2]))
+            if (compare_item(begin[i2], val))
                 break;
             begin[i] = begin[i2];
             i = i2;
