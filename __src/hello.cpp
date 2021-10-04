@@ -14,14 +14,12 @@ struct item {
 
 struct item* matrix;
 struct item** heads;
-double* score;
-int* ranked_list;
-int* ranked_list_b;
+struct item* scoreboard;
 int * res;
-double* umap;
 int topk;
+
 inline bool compare_item(const int a,const int b) {
-    return umap[a] > umap[b];
+    return scoreboard[a].weight > scoreboard[b].weight;
 }
 
 inline void heap_replace_top(int * begin, int val) {
@@ -32,13 +30,13 @@ inline void heap_replace_top(int * begin, int val) {
         i2 = i1 + 1;
         if (i1 > topk)
             break;
-        if (i2 == topk + 1 || umap[begin[i1]] < umap[begin[i2]]) {
-            if (umap[val] < umap[begin[i1]])
+        if (i2 == topk + 1 || compare_item(begin[i1], begin[i2])) {
+            if (compare_item(val, begin[i1]))
                 break;
             begin[i] = begin[i1];
             i = i1;
         } else {
-            if (umap[val] < umap[begin[i2]])
+            if (compare_item(val, begin[i2]))
                 break;
             begin[i] = begin[i2];
             i = i2;
@@ -89,7 +87,7 @@ void eval(py::array_t<double> array, int k) {
     topk = k;
     double *ptr = (double *) buf.ptr;
     n_res =buf.shape[0];
-    umap = (double *)malloc(sizeof(double) * num_rows);
+    scoreboard = (struct item *) malloc(sizeof(struct item ) * num_rows);
     if (num_rows < k) {
         k = num_rows;
     }
@@ -97,14 +95,17 @@ void eval(py::array_t<double> array, int k) {
     int * hp = res;
     for(int r=0; r<n_res; r++) {
         struct item* loc;
-        memset(umap, 0, sizeof(double) * num_rows);
+        memset(scoreboard, 0, sizeof(struct item ) * num_rows);
         for(int c=0; c<num_dims; c++) {
             double weight = ptr[r*num_dims + c];
             if (fabs(weight) < EPS) {
                 continue;
             }
            for(loc=heads[c]; loc < heads[c + 1]; loc ++) {
-                umap[loc->row_id] += weight * loc->weight;
+                int row_id = loc->row_id;
+                double rw = weight * loc->weight;
+                scoreboard[row_id].row_id = row_id;
+                scoreboard[row_id].weight += rw;
             }
         }
 
@@ -112,15 +113,11 @@ void eval(py::array_t<double> array, int k) {
             hp[i] = i;
         }
         make_heap(hp, hp + k, compare_item);
-        double tp = umap[hp[0]];
+        double tp = scoreboard[hp[0]].weight;
         for (int i = k; i<num_rows; i++) {
-            if(tp < umap[i]) {
-                // higher score than heap top
-//                pop_heap(hp, hp + k, compare_item);
-//                hp[k - 1] = i;
-//                push_heap(hp, hp + k, compare_item);
+            if(tp < scoreboard[i].weight) {
                 heap_replace_top(hp, i);
-                tp = umap[hp[0]];
+                tp = scoreboard[hp[0]].weight;
             }
         }
         sort_heap(hp, hp + k, compare_item);
