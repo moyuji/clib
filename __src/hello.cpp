@@ -16,7 +16,7 @@ struct item** heads;
 double* score;
 int* ranked_list;
 int* ranked_list_b;
-unordered_map<int, double> umap;
+double* umap;
 
 bool compare_item(const int a,const int b) {
     return umap[a] > umap[b];
@@ -64,37 +64,33 @@ vector<vector<int>> eval(py::array_t<double> array, int k) {
     double *ptr = (double *) buf.ptr;
     int n_res =buf.shape[0];
     vector<vector<int>> python_ret;
+    umap = (double *)malloc(sizeof(double) * num_rows);
     for(int r=0; r<n_res; r++) {
         struct item* loc;
-        umap.clear();
+        memset(umap, 0, sizeof(double) * num_rows);
         for(int c=0; c<num_dims; c++) {
             double weight = ptr[r*num_dims + c];
             if (fabs(weight) < EPS) {
                 continue;
             }
            for(loc=heads[c]; loc < heads[c + 1]; loc ++) {
-                auto fd = umap.find(loc->row_id);
-                if (fd == umap.end()) {
-                    umap[loc->row_id] = weight * loc->weight;
-                } else {
-                    fd->second += weight * loc->weight;
-                }
+                umap[loc->row_id] += weight * loc->weight;
             }
         }
         vector<int> v1;
-        for (auto it=umap.begin();it!=umap.end(); ++it) {
+        for (int i = 0; i<num_rows; i++) {
             if(k - v1.size() <= 0) {
-                if(umap[v1[0]] < it->second) {
+                if(umap[v1[0]] < umap[i]) {
                     // higher score than heap top
                     pop_heap(v1.begin(), v1.end(), compare_item);
-                    v1.back() = it->first;
+                    v1.back() = i;
                     push_heap(v1.begin(), v1.end(), compare_item);
                 }
                 // lower score than heap top, skip
                 continue;
             }
             // not full yet, just push
-            v1.push_back(it->first);
+            v1.push_back(i);
             push_heap(v1.begin(), v1.end(), compare_item);
         }
         sort(v1.begin(), v1.end(), compare_item);
