@@ -12,4 +12,5 @@ PYBIND11_MODULE(__lib, m) {
     m.def("hello", &hello);
     m.def("load", &load);
     m.def("eval", &eval);
+    m.def("result", &result);
 }

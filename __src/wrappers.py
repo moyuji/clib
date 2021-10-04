@@ -15,3 +15,6 @@ def load(mx):
 
 def eval(dt, k):
     return __lib.eval(dt, k)
+
+def result():
+    return __lib.result()

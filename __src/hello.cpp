@@ -6,6 +6,7 @@
 
 int num_dims;
 int num_rows;
+int n_res;
 struct item {
     int row_id;
     double weight;
@@ -16,8 +17,9 @@ struct item** heads;
 double* score;
 int* ranked_list;
 int* ranked_list_b;
+int * res;
 double* umap;
-
+int topk;
 bool compare_item(const int a,const int b) {
     return umap[a] > umap[b];
 }
@@ -59,16 +61,17 @@ int load(py::array_t<double> array){
     return ret;
 }
 
-vector<vector<int>> eval(py::array_t<double> array, int k) {
+void eval(py::array_t<double> array, int k) {
     py::buffer_info buf = array.request();
+    topk = k;
     double *ptr = (double *) buf.ptr;
-    int n_res =buf.shape[0];
-    vector<vector<int>> python_ret;
+    n_res =buf.shape[0];
     umap = (double *)malloc(sizeof(double) * num_rows);
     if (num_rows < k) {
         k = num_rows;
     }
-    int * hp = (int *)malloc(sizeof(int) * k);
+    res = (int *)malloc(sizeof(int) * n_res * k);
+    int * hp = res;
     for(int r=0; r<n_res; r++) {
         struct item* loc;
         memset(umap, 0, sizeof(double) * num_rows);
@@ -96,10 +99,19 @@ vector<vector<int>> eval(py::array_t<double> array, int k) {
                 tp = umap[hp[0]];
             }
         }
-        sort(hp, hp + k, compare_item);
-        vector<int> v1(k);
-        for(int i=0; i <k; i++) {
-            v1[i]=hp[i];
+        sort_heap(hp, hp + k, compare_item);
+        hp += k;
+    }
+}
+
+vector<vector<int>> result() {
+    vector<vector<int>> python_ret;
+    vector<int> v1(topk);
+    int * hp = res;
+    for(int j =0 ;j<n_res; j++) {
+        for(int i=0; i<topk; i++) {
+            v1[i]=*hp;
+            hp ++;
         }
         python_ret.push_back(v1);
     }
