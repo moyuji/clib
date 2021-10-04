@@ -65,6 +65,10 @@ vector<vector<int>> eval(py::array_t<double> array, int k) {
     int n_res =buf.shape[0];
     vector<vector<int>> python_ret;
     umap = (double *)malloc(sizeof(double) * num_rows);
+    if (num_rows < k) {
+        k = num_rows;
+    }
+    int * hp = (int *)malloc(sizeof(int) * k);
     for(int r=0; r<n_res; r++) {
         struct item* loc;
         memset(umap, 0, sizeof(double) * num_rows);
@@ -77,28 +81,26 @@ vector<vector<int>> eval(py::array_t<double> array, int k) {
                 umap[loc->row_id] += weight * loc->weight;
             }
         }
-        vector<int> v1;
-        for (int i = 0; i<num_rows; i++) {
-            if(k - v1.size() <= 0) {
-                if(umap[v1[0]] < umap[i]) {
-                    // higher score than heap top
-                    pop_heap(v1.begin(), v1.end(), compare_item);
-                    v1.back() = i;
-                    push_heap(v1.begin(), v1.end(), compare_item);
-                }
-                // lower score than heap top, skip
-                continue;
-            }
-            // not full yet, just push
-            v1.push_back(i);
-            push_heap(v1.begin(), v1.end(), compare_item);
+
+        for (int i =0; i<k; i++) {
+            hp[i] = i;
         }
-        sort(v1.begin(), v1.end(), compare_item);
-//        for(auto it=v1.begin();it != v1.end();it++) {
-//            printf("%f ", umap[*it]);
-//        }
-//        printf("\n");
-//        printf("ret length: %lu\n", v1.size());
+        make_heap(hp, hp + k, compare_item);
+        double tp = umap[hp[0]];
+        for (int i = k; i<num_rows; i++) {
+            if(tp < umap[i]) {
+                // higher score than heap top
+                pop_heap(hp, hp + k, compare_item);
+                hp[k - 1] = i;
+                push_heap(hp, hp + k, compare_item);
+                tp = umap[hp[0]];
+            }
+        }
+        sort(hp, hp + k, compare_item);
+        vector<int> v1(k);
+        for(int i=0; i <k; i++) {
+            v1[i]=hp[i];
+        }
         python_ret.push_back(v1);
     }
     return python_ret;
