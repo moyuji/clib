@@ -15,14 +15,14 @@ struct item {
 struct item* matrix;
 struct item** heads;
 struct item* scoreboard;
-int * res;
+struct item* res;
 int topk;
 
-inline bool compare_item(const int a,const int b) {
-    return scoreboard[a].weight > scoreboard[b].weight;
+inline bool compare_item(const struct item a,const struct item b) {
+    return a.weight > b.weight;
 }
 
-inline void heap_replace_top(int * begin, int val) {
+inline void heap_replace_top(struct item * begin, struct item val) {
     begin--;
     int i = 1, i1, i2;
     while (1) {
@@ -82,20 +82,21 @@ int load(py::array_t<double> array){
     return ret;
 }
 
-void eval(py::array_t<double> array, int k) {
+void eval(py::array_t<double> array, int k, int squeeze) {
     py::buffer_info buf = array.request();
     topk = k;
     double *ptr = (double *) buf.ptr;
     n_res =buf.shape[0];
-    scoreboard = (struct item *) malloc(sizeof(struct item ) * num_rows);
     if (num_rows < k) {
         k = num_rows;
     }
-    res = (int *)malloc(sizeof(int) * n_res * k);
-    int * hp = res;
+    int n_score = (num_rows + (1 << squeeze) - 1) >> squeeze;
+    scoreboard = (struct item *) malloc(sizeof(struct item ) * n_score);
+    res = (struct item *)malloc(sizeof(struct item ) * n_res * k);
+    struct item * hp = res;
     for(int r=0; r<n_res; r++) {
         struct item* loc;
-        memset(scoreboard, 0, sizeof(struct item ) * num_rows);
+        memset(scoreboard, 0, sizeof(struct item ) * n_score);
         for(int c=0; c<num_dims; c++) {
             double weight = ptr[r*num_dims + c];
             if (fabs(weight) < EPS) {
@@ -103,21 +104,26 @@ void eval(py::array_t<double> array, int k) {
             }
            for(loc=heads[c]; loc < heads[c + 1]; loc ++) {
                 int row_id = loc->row_id;
+                int key = row_id >> squeeze;
                 double rw = weight * loc->weight;
-                scoreboard[row_id].row_id = row_id;
-                scoreboard[row_id].weight += rw;
+                if (scoreboard[key].row_id > 0 && scoreboard[key].row_id != row_id) {
+                    continue;
+                } else {
+                    scoreboard[key].row_id = row_id;
+                    scoreboard[key].weight += rw;
+                }
             }
         }
 
         for (int i =0; i<k; i++) {
-            hp[i] = i;
+            hp[i] = scoreboard[i];
         }
         make_heap(hp, hp + k, compare_item);
-        double tp = scoreboard[hp[0]].weight;
-        for (int i = k; i<num_rows; i++) {
+        double tp = hp[0].weight;
+        for (int i = k; i<n_score; i++) {
             if(tp < scoreboard[i].weight) {
-                heap_replace_top(hp, i);
-                tp = scoreboard[hp[0]].weight;
+                heap_replace_top(hp, scoreboard[i]);
+                tp = hp[0].weight;
             }
         }
         sort_heap(hp, hp + k, compare_item);
@@ -128,10 +134,10 @@ void eval(py::array_t<double> array, int k) {
 vector<vector<int>> result() {
     vector<vector<int>> python_ret;
     vector<int> v1(topk);
-    int * hp = res;
+    struct item * hp = res;
     for(int j =0 ;j<n_res; j++) {
         for(int i=0; i<topk; i++) {
-            v1[i]=*hp;
+            v1[i]=hp->row_id;
             hp ++;
         }
         python_ret.push_back(v1);

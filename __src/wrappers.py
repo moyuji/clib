@@ -13,8 +13,8 @@ def hello():
 def load(mx):
     return __lib.load(mx)
 
-def eval(dt, k):
-    return __lib.eval(dt, k)
+def eval(dt, k, squeeze=0):
+    return __lib.eval(dt, k, squeeze)
 
 def result():
     return __lib.result()
