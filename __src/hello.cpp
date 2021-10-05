@@ -24,6 +24,10 @@ inline bool compare_item(const int a,const int b) {
     return umap[a] > umap[b];
 }
 
+inline bool compare_weight(const struct item a, const struct item b) {
+    return fabs(a.weight) > fabs(b.weight);
+}
+
 inline void heap_replace_top(int * begin, int val) {
     begin--;
     int i = 1, i1, i2;
@@ -79,6 +83,7 @@ int load(py::array_t<double> array){
                 loc++;
             }
         }
+        sort(heads[c], loc, compare_weight);
     }
     heads[num_dims] = loc;
     printf("Loaded!\n");
@@ -96,7 +101,7 @@ void eval(py::array_t<double> array, int k) {
     long long counter_prod = 0;
     long long counter_heap = 0;
     res = (int *)malloc(sizeof(int) * n_res * k);
-    memset(res, 0, sizeof(int) * n_res * k);
+//    memset(res, 0, sizeof(int) * n_res * k);
     int * hp = res;
     for(int r=0; r<n_res; r++) {
         struct item* loc;
@@ -111,16 +116,17 @@ void eval(py::array_t<double> array, int k) {
             }
         }
         int hp_fill = 0;
+        double tp = 0.0;
         for(int c=0; c<num_dims; c++) {
             double weight = ptr[r*num_dims + c];
             if (fabs(weight) < EPS) {
                 continue;
             }
             for(loc=heads[c]; loc < heads[c + 1]; loc ++) {
-                double tp = 0.0;
-                if (fabs(score[loc->row_id]) > EPS) {
-                    int row_id = loc->row_id;
-                    umap[row_id] = score[row_id];
+                int row_id = loc->row_id;
+                double score_now = score[loc->row_id];
+                if (fabs(score_now) > EPS) {
+                    umap[row_id] = score_now;
                     score[row_id] = 0.0;
                     if (hp_fill < k) {
                         hp[hp_fill++] = row_id;
@@ -129,8 +135,9 @@ void eval(py::array_t<double> array, int k) {
                             tp = umap[hp[0]];
                         }
                     } else {
-                        if(tp < umap[row_id]) {
+                        if(tp < score_now) {
                             heap_replace_top(hp, row_id);
+                            tp = umap[hp[0]];
                             ++counter_heap;
                         }
                     }
