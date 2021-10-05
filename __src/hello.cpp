@@ -56,7 +56,8 @@ int load(py::array_t<double> array){
     num_rows = buf.shape[0];
     num_dims = buf.shape[1];
     double *ptr = (double *) buf.ptr;
-
+    score = (double *)malloc(sizeof(double) * num_rows);
+    umap = (double *)malloc(sizeof(double) * num_rows);
     int ret = 0;
     for (int r=0; r<num_rows; r++) {
          for(int c=0; c<num_dims; c++) {
@@ -89,43 +90,57 @@ void eval(py::array_t<double> array, int k) {
     topk = k;
     double *ptr = (double *) buf.ptr;
     n_res =buf.shape[0];
-    umap = (double *)malloc(sizeof(double) * num_rows);
     if (num_rows < k) {
         k = num_rows;
     }
+    long long counter_prod = 0;
+    long long counter_heap = 0;
     res = (int *)malloc(sizeof(int) * n_res * k);
+    memset(res, 0, sizeof(int) * n_res * k);
     int * hp = res;
     for(int r=0; r<n_res; r++) {
         struct item* loc;
-        memset(umap, 0, sizeof(double) * num_rows);
         for(int c=0; c<num_dims; c++) {
             double weight = ptr[r*num_dims + c];
             if (fabs(weight) < EPS) {
                 continue;
             }
            for(loc=heads[c]; loc < heads[c + 1]; loc ++) {
-                umap[loc->row_id] += weight * loc->weight;
+                score[loc->row_id] += weight * loc->weight;
+                ++counter_prod;
             }
         }
-
-        for (int i =0; i<k; i++) {
-            hp[i] = i;
-        }
-        make_heap(hp, hp + k, compare_item);
-        double tp = umap[hp[0]];
-        for (int i = k; i<num_rows; i++) {
-            if(tp < umap[i]) {
-                // higher score than heap top
-//                pop_heap(hp, hp + k, compare_item);
-//                hp[k - 1] = i;
-//                push_heap(hp, hp + k, compare_item);
-                heap_replace_top(hp, i);
-                tp = umap[hp[0]];
+        int hp_fill = 0;
+        for(int c=0; c<num_dims; c++) {
+            double weight = ptr[r*num_dims + c];
+            if (fabs(weight) < EPS) {
+                continue;
+            }
+            for(loc=heads[c]; loc < heads[c + 1]; loc ++) {
+                double tp = 0.0;
+                if (fabs(score[loc->row_id]) > EPS) {
+                    int row_id = loc->row_id;
+                    umap[row_id] = score[row_id];
+                    score[row_id] = 0.0;
+                    if (hp_fill < k) {
+                        hp[hp_fill++] = row_id;
+                        if (hp_fill == k) {
+                            make_heap(hp, hp + k, compare_item);
+                            tp = umap[hp[0]];
+                        }
+                    } else {
+                        if(tp < umap[row_id]) {
+                            heap_replace_top(hp, row_id);
+                            ++counter_heap;
+                        }
+                    }
+                }
             }
         }
         sort_heap(hp, hp + k, compare_item);
         hp += k;
     }
+    printf("%lld %lld\n", counter_prod, counter_heap);
 }
 
 vector<vector<int>> result() {
