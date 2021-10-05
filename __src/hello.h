@@ -27,8 +27,8 @@ using namespace std;
 
 // Our hello world function definition
 void hello();
-void eval(py::array_t<double>, int);
-int load(py::array_t<double>);
-vector<vector<int>> result();
+void eval(py::array_t<double>, unsigned long);
+unsigned long load(py::array_t<double>);
+vector<vector<unsigned long>> result();
 
 #endif

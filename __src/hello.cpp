@@ -4,33 +4,33 @@
 #include "hello.h"
 #define EPS 0.000001
 
-int num_dims;
-int num_rows;
-int n_res;
+unsigned long num_dims;
+unsigned long num_rows;
+unsigned long n_res;
 struct item {
-    int row_id;
+    unsigned long row_id;
     double weight;
 };
 
 struct item* matrix;
 struct item** heads;
 double* score;
-int* ranked_list;
-int* ranked_list_b;
-int * res;
+unsigned long* ranked_list;
+unsigned long* ranked_list_b;
+unsigned long * res;
 double* umap;
-int topk;
-inline bool compare_item(const int a,const int b) {
+unsigned long topk;
+inline bool compare_item(const unsigned long a,const unsigned long b) {
     return umap[a] > umap[b];
 }
 
 inline bool compare_weight(const struct item a, const struct item b) {
-    return fabs(a.weight) > fabs(b.weight);
+    return fabs(a.weight) < fabs(b.weight);
 }
 
-inline void heap_replace_top(int * begin, int val) {
+inline void heap_replace_top(unsigned long * begin, unsigned long val) {
     begin--;
-    int i = 1, i1, i2;
+    unsigned long i = 1, i1, i2;
     while (1) {
         i1 = i << 1;
         i2 = i1 + 1;
@@ -55,7 +55,7 @@ void hello() {
     printf("Hello!\n");
 }
 
-int load(py::array_t<double> array){
+unsigned long load(py::array_t<double> array){
     printf("Loading...\n");
     py::buffer_info buf = array.request();
     num_rows = buf.shape[0];
@@ -63,9 +63,9 @@ int load(py::array_t<double> array){
     double *ptr = (double *) buf.ptr;
     score = (double *)malloc(sizeof(double) * num_rows);
     umap = (double *)malloc(sizeof(double) * num_rows);
-    int ret = 0;
-    for (int r=0; r<num_rows; r++) {
-         for(int c=0; c<num_dims; c++) {
+    unsigned long ret = 0;
+    for (unsigned long r=0; r<num_rows; r++) {
+         for(unsigned long c=0; c<num_dims; c++) {
             if (fabs(ptr[r*num_dims + c] ) > EPS) {
                 ret += 1;
             }
@@ -74,9 +74,9 @@ int load(py::array_t<double> array){
     matrix = (struct item*) malloc(sizeof(struct item) * ret);
     heads = (struct item**) malloc(sizeof(struct item*) * (num_dims + 1));
     struct item* loc = matrix;
-    for(int c=0; c<num_dims; c++) {
+    for(unsigned long c=0; c<num_dims; c++) {
         heads[c] = loc;
-        for (int r=0; r<num_rows; r++) {
+        for (unsigned long r=0; r<num_rows; r++) {
             double weight = ptr[r*num_dims + c];
             if (fabs(weight) > EPS) {
                 loc->weight = weight;
@@ -91,7 +91,7 @@ int load(py::array_t<double> array){
     return ret;
 }
 
-void eval(py::array_t<double> array, int k) {
+void eval(py::array_t<double> array, unsigned long k) {
     py::buffer_info buf = array.request();
     topk = k;
     double *ptr = (double *) buf.ptr;
@@ -99,14 +99,14 @@ void eval(py::array_t<double> array, int k) {
     if (num_rows < k) {
         k = num_rows;
     }
-    long long counter_prod = 0;
-    long long counter_heap = 0;
-    res = (int *)malloc(sizeof(int) * n_res * k);
-//    memset(res, 0, sizeof(int) * n_res * k);
-    int * hp = res;
-    for(int r=0; r<n_res; r++) {
+    unsigned long counter_prod = 0;
+    unsigned long counter_heap = 0;
+    res = (unsigned long *)malloc(sizeof(unsigned long) * n_res * k);
+//    memset(res, 0, sizeof(unsigned long) * n_res * k);
+    unsigned long * hp = res;
+    for(unsigned long r=0; r<n_res; r++) {
         struct item* loc;
-        for(int c=0; c<num_dims; c++) {
+        for(unsigned long c=0; c<num_dims; c++) {
             double weight = ptr[r*num_dims + c];
             if (fabs(weight) < EPS) {
                 continue;
@@ -116,15 +116,15 @@ void eval(py::array_t<double> array, int k) {
                 ++counter_prod;
             }
         }
-        int hp_fill = 0;
+        unsigned long hp_fill = 0;
         double tp = 0.0;
-        for(int c=0; c<num_dims; c++) {
+        for(unsigned long c=0; c<num_dims; c++) {
             double weight = ptr[r*num_dims + c];
             if (fabs(weight) < EPS) {
                 continue;
             }
             for(loc=heads[c]; loc < heads[c + 1]; loc ++) {
-                int row_id = loc->row_id;
+                unsigned long row_id = loc->row_id;
                 double score_now = score[loc->row_id];
                 if (fabs(score_now) > EPS) {
                     umap[row_id] = score_now;
@@ -148,15 +148,15 @@ void eval(py::array_t<double> array, int k) {
         sort_heap(hp, hp + hp_fill, compare_item);
         hp += k;
     }
-    printf("%lld %lld\n", counter_prod, counter_heap);
+    printf("%lu %lu\n", counter_prod, counter_heap);
 }
 
-vector<vector<int>> result() {
-    vector<vector<int>> python_ret;
-    vector<int> v1(topk);
-    int * hp = res;
-    for(int j =0 ;j<n_res; j++) {
-        for(int i=0; i<topk; i++) {
+vector<vector<unsigned long>> result() {
+    vector<vector<unsigned long>> python_ret;
+    vector<unsigned long> v1(topk);
+    unsigned long * hp = res;
+    for(unsigned long j =0 ;j<n_res; j++) {
+        for(unsigned long i=0; i<topk; i++) {
             v1[i]=*hp;
             hp ++;
         }
