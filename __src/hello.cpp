@@ -56,6 +56,7 @@ void hello() {
 }
 
 int load(py::array_t<double> array){
+    printf("Loading...\n");
     py::buffer_info buf = array.request();
     num_rows = buf.shape[0];
     num_dims = buf.shape[1];
@@ -144,7 +145,7 @@ void eval(py::array_t<double> array, int k) {
                 }
             }
         }
-        sort_heap(hp, hp + k, compare_item);
+        sort_heap(hp, hp + hp_fill, compare_item);
         hp += k;
     }
     printf("%lld %lld\n", counter_prod, counter_heap);
