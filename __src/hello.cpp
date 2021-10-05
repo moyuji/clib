@@ -20,12 +20,13 @@ unsigned long* ranked_list_b;
 unsigned long * res;
 double* umap;
 unsigned long topk;
+struct item* dim_rank;
 inline bool compare_item(const unsigned long a,const unsigned long b) {
     return umap[a] > umap[b];
 }
 
 inline bool compare_weight(const struct item a, const struct item b) {
-    return fabs(a.weight) < fabs(b.weight);
+    return fabs(a.weight) > fabs(b.weight);
 }
 
 inline void heap_replace_top(unsigned long * begin, unsigned long val) {
@@ -72,6 +73,7 @@ unsigned long load(py::array_t<double> array){
         }
     }
     matrix = (struct item*) malloc(sizeof(struct item) * ret);
+    dim_rank = (struct item*) malloc(sizeof(struct item) * num_dims);
     heads = (struct item**) malloc(sizeof(struct item*) * (num_dims + 1));
     struct item* loc = matrix;
     for(unsigned long c=0; c<num_dims; c++) {
@@ -106,23 +108,25 @@ void eval(py::array_t<double> array, unsigned long k) {
     unsigned long * hp = res;
     for(unsigned long r=0; r<n_res; r++) {
         struct item* loc;
+        unsigned long n_dim = 0;
         for(unsigned long c=0; c<num_dims; c++) {
             double weight = ptr[r*num_dims + c];
             if (fabs(weight) < EPS) {
                 continue;
             }
-           for(loc=heads[c]; loc < heads[c + 1]; loc ++) {
+            dim_rank[n_dim].row_id = c;
+            dim_rank[n_dim].weight = weight;
+            n_dim ++;
+            for(loc=heads[c]; loc < heads[c + 1]; loc ++) {
                 score[loc->row_id] += weight * loc->weight;
                 ++counter_prod;
             }
         }
+        sort(dim_rank, dim_rank + n_dim, compare_weight);
         unsigned long hp_fill = 0;
         double tp = 0.0;
-        for(unsigned long c=0; c<num_dims; c++) {
-            double weight = ptr[r*num_dims + c];
-            if (fabs(weight) < EPS) {
-                continue;
-            }
+        for(unsigned long d=0; d<n_dim; d++) {
+            unsigned long c = dim_rank[d].row_id;
             for(loc=heads[c]; loc < heads[c + 1]; loc ++) {
                 unsigned long row_id = loc->row_id;
                 double score_now = score[loc->row_id];
